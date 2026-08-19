@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Cyclistic bike-share ETL. An S3 event notification on the raw prefix invokes a
+  Python Lambda that cleans a monthly trip CSV with pandas and writes the result
+  to the processed prefix of the same bucket.
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: cyclistic-pipeline-drew
+    Description: >-
+      Globally unique S3 bucket name holding both zones. Referenced by name
+      rather than by Ref in the Lambda permission to avoid a circular
+      dependency between the bucket and the function.
+
+  RawPrefix:
+    Type: String
+    Default: cyclistic-raw/
+
+  ProcessedPrefix:
+    Type: String
+    Default: cyclistic-processed/
+
+  PandasLayerArn:
+    Type: String
+    Default: arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python313:16
+    Description: >-
+      AWS SDK for pandas managed layer (awswrangler 3.17.1, py3.13, x86_64,
+      us-east-1). Pinned to an explicit version deliberately: a floating
+      reference would let the pandas version change between the run that
+      produced the published numbers and any later re-deploy.
+
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    Description: CloudWatch Logs retention. Unbounded retention is a silent cost.
+
+Resources:
+
+  # Created before the bucket so the bucket's NotificationConfiguration has
+  # something to attach to. SourceArn is built from the parameter string, not
+  # from !Ref TripDataBucket, which would make the dependency circular.
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CleanTripDataFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:${AWS::Partition}:s3:::${BucketName}
+
+  TripDataBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: InvokePermission
+    # Project 2 reads the processed zone. Deleting this stack must not take
+    # the data with it -- delete the bucket deliberately, not as a side effect.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      NotificationConfiguration:
+        LambdaConfigurations:
+          # Scoped to the raw prefix and .csv suffix. Without the prefix
+          # filter the function's own output would re-trigger it in a loop.
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: !Ref RawPrefix
+                  - Name: suffix
+                    Value: .csv
+            Function: !GetAtt CleanTripDataFunction.Arn
+
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-clean-trip-data
+      RetentionInDays: !Ref LogRetentionDays
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cyclistic-etl-least-privilege
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Read only from the raw zone.
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${BucketName}/${RawPrefix}*
+              # Write only to the processed zone. No wildcard on the bucket.
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${BucketName}/${ProcessedPrefix}*
+              # Scoped to this function's log group, not logs:* on everything.
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-clean-trip-data:*
+
+  CleanTripDataFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: FunctionLogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-clean-trip-data
+      Runtime: python3.13
+      Architectures:
+        - x86_64
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt FunctionRole.Arn
+      # 3008 MB is this account's Lambda quota ceiling. The largest month is ~869k rows, and the DataFrame plus the CSV
+      # output buffer both sit in memory at once. CPU scales with memory, so a
+      # larger size finishes faster and costs roughly the same GB-seconds.
+      MemorySize: 3008
+      # Generous ceiling. Timeout costs nothing unless it is actually used, and
+      # per-element timestamp parsing on the largest file is the slow step.
+      Timeout: 900
+      Layers:
+        - !Ref PandasLayerArn
+      Environment:
+        Variables:
+          RAW_PREFIX: !Ref RawPrefix
+          PROCESSED_PREFIX: !Ref ProcessedPrefix
+      Code:
+        # Placeholder only. The real handler is installed by
+        # `aws lambda update-function-code` after the stack is created --
+        # inline CloudFormation code is capped at 4096 characters and always
+        # lands in index.py, which would not match the handler above.
+        ZipFile: |
+          def placeholder(event, context):
+              raise RuntimeError(
+                  "Stack created the function shell. Run the "
+                  "update-function-code step before uploading any CSV."
+              )
+
+Outputs:
+  BucketNameOut:
+    Description: Trip data bucket
+    Value: !Ref TripDataBucket
+
+  RawZoneUri:
+    Description: Upload monthly CSVs here to trigger the pipeline
+    Value: !Sub s3://${BucketName}/${RawPrefix}
+
+  ProcessedZoneUri:
+    Description: Cleaned output lands here
+    Value: !Sub s3://${BucketName}/${ProcessedPrefix}
+
+  FunctionNameOut:
+    Description: Target for update-function-code
+    Value: !Ref CleanTripDataFunction

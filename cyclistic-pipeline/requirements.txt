@@ -1,0 +1,4 @@
+# Verified locally against pandas 3.0.5 (dev) and 2.2.3 (Lambda-layer scenario);
+# identical row counts on both. Pin range reflects that verified compatibility.
+pandas>=2.2,<4
+boto3>=1.34

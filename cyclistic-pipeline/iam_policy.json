@@ -1,0 +1,23 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::cyclistic-pipeline-drew/cyclistic-raw/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::cyclistic-pipeline-drew/cyclistic-processed/*",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:<ACCOUNT_ID>:log-group:/aws/lambda/cyclistic-pipeline-clean-trip-data:*",
+            "Effect": "Allow"
+        }
+    ]
+}
