@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Credentials & secrets — never commit
+.env
+*.pem
+*.key
+.aws/
+*credentials*
+
+# Build artifacts
+*.zip
+dist/
+build/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Office/BI temp files
+~$*
