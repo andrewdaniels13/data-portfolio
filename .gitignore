@@ -27,3 +27,14 @@ build/
 
 # Office/BI temp files
 ~$*
+
+# Tableau
+# .hyper are extract build artifacts — regenerable, large.
+*.hyper
+# .twbx is a zip archive that embeds the packaged data
+# source's connection metadata, INCLUDING the RDS endpoint
+# hostname in plaintext inside the .twb. Verified with
+# unzip + grep. Never commit one from a live database
+# connection without checking. See cyclistic-analytics/README.md.
+*.twbx
+*.twb

@@ -1,0 +1,171 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Cyclistic Analytics (Project 2) - self-contained RDS PostgreSQL stack.
+  Creates its own VPC, two public subnets across two AZs, an internet
+  gateway, routing, an IP-locked security group, and a disposable
+  Single-AZ Postgres instance (no backups). Rebuilt from S3 via COPY if
+  lost. Delete the stack after the Tableau extract to stop all charges.
+
+Parameters:
+  DBMasterUsername:
+    Type: String
+    Default: cyclistic_admin
+    Description: Master username for the Postgres instance.
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_]*"
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    Description: >
+      Master password. Supplied at deploy time, never stored in this template.
+      8+ chars; must NOT contain / @ " or spaces.
+    MinLength: 8
+    MaxLength: 128
+
+  AllowedCidr:
+    Type: String
+    Description: >
+      The single IP (CIDR /32) permitted to reach Postgres on 5432.
+      No default: you must pass your own IP at deploy time.
+      Get it with: curl -s https://checkip.amazonaws.com
+    AllowedPattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}/32$"
+
+Resources:
+  # ---------- Networking ----------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetA
+      RouteTableId: !Ref RouteTable
+
+  SubnetBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref RouteTable
+
+  # ---------- Access control ----------
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Postgres 5432 inbound from a single workstation IP only
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref AllowedCidr
+          Description: Postgres from analyst workstation
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets across two AZs for the Cyclistic analytics DB
+      SubnetIds:
+        - !Ref SubnetA
+        - !Ref SubnetB
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+  # ---------- Database ----------
+  CyclisticDB:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: cyclistic-analytics-db
+      Engine: postgres
+      DBInstanceClass: db.t4g.small
+      AllocatedStorage: "20"
+      StorageType: gp3
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBName: cyclistic
+      PubliclyAccessible: true
+      MultiAZ: false
+      BackupRetentionPeriod: 0
+      DeleteAutomatedBackups: true
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      Tags:
+        - Key: Project
+          Value: cyclistic-analytics
+
+Outputs:
+  DBEndpoint:
+    Description: Postgres connection endpoint (host).
+    Value: !GetAtt CyclisticDB.Endpoint.Address
+  DBPort:
+    Description: Postgres port.
+    Value: !GetAtt CyclisticDB.Endpoint.Port
+  DBName:
+    Description: Initial database name.
+    Value: cyclistic

@@ -1,0 +1,15 @@
+member_casual,day_of_week,total_rides,avg_minutes,median_minutes,p90_minutes
+casual,Friday,327082,18.39,11.21,35.83
+casual,Monday,235176,18.95,11.11,38.56
+casual,Saturday,438666,21.54,13.47,42.70
+casual,Sunday,342449,22.06,13.36,44.56
+casual,Thursday,258278,16.40,10.11,31.27
+casual,Tuesday,229793,16.25,10.07,31.08
+casual,Wednesday,237440,15.70,9.92,29.62
+member,Friday,568965,12.18,8.62,23.37
+member,Monday,527233,11.94,8.44,22.95
+member,Saturday,482930,13.53,9.61,26.42
+member,Sunday,406201,13.45,9.34,26.54
+member,Thursday,606033,11.81,8.58,22.58
+member,Tuesday,601400,11.80,8.55,22.48
+member,Wednesday,610050,11.75,8.59,22.46

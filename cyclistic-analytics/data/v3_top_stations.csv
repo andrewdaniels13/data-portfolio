@@ -1,0 +1,21 @@
+member_casual,start_station_name,total_rides,rnk
+casual,Navy Pier,49005,1
+casual,DuSable Lake Shore Dr & Monroe St,29159,2
+casual,Michigan Ave & Oak St,19896,3
+casual,DuSable Lake Shore Dr & North Blvd,17325,4
+casual,Millennium Park,15983,5
+casual,Shedd Aquarium,15596,6
+casual,Theater on the Lake,14187,7
+casual,Dusable Harbor,12930,8
+casual,Michigan Ave & 8th St,9751,9
+casual,Adler Planetarium,9475,10
+member,Canal St & Madison St,19905,1
+member,State St & Chicago Ave,18167,2
+member,Clinton St & Madison St,17220,3
+member,Clinton St & Jackson Blvd,17207,4
+member,Wells St & Concord Ln,16315,5
+member,Wells St & Elm St,16014,6
+member,Clinton St & Washington Blvd,15220,7
+member,Wells St & Huron St,15050,8
+member,Clark St & Elm St,14886,9
+member,Navy Pier,14353,10
