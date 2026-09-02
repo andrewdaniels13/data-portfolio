@@ -5,7 +5,7 @@ End-to-end AWS data engineering and analytics projects, built for real and docum
 | # | Project | Stack | Status | Post |
 |---|---------|-------|--------|------|
 | 1 | [Cyclistic Pipeline](./cyclistic-pipeline/) | AWS Lambda · S3 · Python (pandas) | Published | [Medium](https://andrewndaniels0.medium.com/event-driven-etl-for-bike-share-data-with-aws-lambda-and-python-9fa838c089cd) |
-| 2 | [Cyclistic Analytics](./cyclistic-analytics/) | Amazon RDS (PostgreSQL) · R · Tableau | In progress | — |
+| 2 | [Cyclistic Analytics](./cyclistic-analytics/) | Amazon RDS (PostgreSQL) · R · Tableau | Published | [Medium](https://andrewndaniels0.medium.com/analyzing-bike-share-rider-behavior-with-amazon-rds-r-and-tableau-df08461bbcff) |
 | 3 | [Bellabeat Pipeline](./bellabeat-pipeline/) | AWS Step Functions · EMR · PySpark | Planned | — |
 | 4 | [Bellabeat Analytics](./bellabeat-analytics/) | Amazon Redshift · Jupyter (Python) · Power BI | Planned | — |
 
