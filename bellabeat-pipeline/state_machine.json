@@ -1,0 +1,220 @@
+{
+  "Comment": "Bellabeat pipeline: inventory raw CSVs, run the PySpark job on a transient EMR cluster, validate output, terminate. Every failure after CreateCluster terminates the cluster before failing. ${...} placeholders are filled by CloudFormation DefinitionSubstitutions.",
+  "StartAt": "InventoryFiles",
+  "States": {
+    "InventoryFiles": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InventoryFunctionArn}",
+        "Payload": {
+          "bucket.$": "$.bucket",
+          "raw_prefix.$": "States.Format('{}/', $.raw_dir)",
+          "expected_files.$": "$.expected_files"
+        }
+      },
+      "ResultSelector": {
+        "files_found.$": "$.Payload.files_found"
+      },
+      "ResultPath": "$.inventory",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "InventoryFailed"
+        }
+      ],
+      "Next": "CreateCluster"
+    },
+
+    "CreateCluster": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:createCluster.sync",
+      "Parameters": {
+        "Name": "bellabeat-pipeline",
+        "ReleaseLabel.$": "$.cluster.release_label",
+        "Applications": [{ "Name": "Spark" }],
+        "ServiceRole": "${EmrServiceRole}",
+        "JobFlowRole": "${EmrInstanceProfile}",
+        "LogUri.$": "States.Format('s3://{}/{}/', $.bucket, $.logs_dir)",
+        "VisibleToAllUsers": true,
+        "Tags": [{ "Key": "project", "Value": "bellabeat-pipeline" }],
+        "AutoTerminationPolicy": {
+          "IdleTimeout.$": "$.cluster.idle_timeout_seconds"
+        },
+        "Instances": {
+          "KeepJobFlowAliveWhenNoSteps": true,
+          "InstanceGroups": [
+            {
+              "Name": "Primary",
+              "InstanceRole": "MASTER",
+              "InstanceType.$": "$.cluster.instance_type",
+              "InstanceCount": 1
+            },
+            {
+              "Name": "Core",
+              "InstanceRole": "CORE",
+              "InstanceType.$": "$.cluster.instance_type",
+              "InstanceCount.$": "$.cluster.core_count"
+            }
+          ]
+        }
+      },
+      "ResultSelector": {
+        "ClusterId.$": "$.ClusterId"
+      },
+      "ResultPath": "$.emr",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "CreateClusterFailed"
+        }
+      ],
+      "Next": "RunPySparkJob"
+    },
+
+    "RunPySparkJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+      "Parameters": {
+        "ClusterId.$": "$.emr.ClusterId",
+        "Step": {
+          "Name": "fitbit_etl",
+          "ActionOnFailure": "CONTINUE",
+          "HadoopJarStep": {
+            "Jar": "command-runner.jar",
+            "Args.$": "States.Array('spark-submit', '--deploy-mode', 'cluster', States.Format('s3://{}/{}/fitbit_etl.py', $.bucket, $.scripts_dir), '--input', States.Format('s3://{}/{}', $.bucket, $.raw_dir), '--output', States.Format('s3://{}/{}', $.bucket, $.processed_dir))"
+          }
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "TerminateAfterFailure"
+        }
+      ],
+      "Next": "ValidateOutput"
+    },
+
+    "ValidateOutput": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ValidateFunctionArn}",
+        "Payload": {
+          "bucket.$": "$.bucket",
+          "processed_prefix.$": "States.Format('{}/', $.processed_dir)",
+          "datasets.$": "$.datasets"
+        }
+      },
+      "ResultSelector": {
+        "report.$": "$.Payload.report"
+      },
+      "ResultPath": "$.validation",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "TerminateAfterFailure"
+        }
+      ],
+      "Next": "TerminateCluster"
+    },
+
+    "TerminateCluster": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:terminateCluster.sync",
+      "Parameters": {
+        "ClusterId.$": "$.emr.ClusterId"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    },
+
+    "TerminateAfterFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:terminateCluster.sync",
+      "Parameters": {
+        "ClusterId.$": "$.emr.ClusterId"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.terminate_error",
+          "Next": "TerminateFailed"
+        }
+      ],
+      "Next": "PipelineFailed"
+    },
+
+    "InventoryFailed": {
+      "Type": "Fail",
+      "ErrorPath": "$.error.Error",
+      "CausePath": "$.error.Cause"
+    },
+
+    "CreateClusterFailed": {
+      "Type": "Fail",
+      "ErrorPath": "$.error.Error",
+      "CausePath": "$.error.Cause"
+    },
+
+    "PipelineFailed": {
+      "Type": "Fail",
+      "ErrorPath": "$.error.Error",
+      "CausePath": "$.error.Cause"
+    },
+
+    "TerminateFailed": {
+      "Type": "Fail",
+      "Error": "ClusterTerminationFailed",
+      "Cause": "Termination failed after a pipeline error. The cluster may still be running: check the EMR console now."
+    }
+  }
+}

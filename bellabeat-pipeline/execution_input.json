@@ -1,0 +1,23 @@
+{
+  "bucket": "REPLACE_WITH_BUCKET",
+  "raw_dir": "bellabeat-raw",
+  "processed_dir": "bellabeat-processed",
+  "scripts_dir": "bellabeat-scripts",
+  "logs_dir": "bellabeat-logs",
+  "expected_files": [
+    "dailyActivity_merged.csv",
+    "sleepDay_merged.csv",
+    "hourlySteps_merged.csv",
+    "weightLogInfo_merged.csv"
+  ],
+  "datasets": {
+    "daily": { "rows": 868, "users": 33 },
+    "hourly": { "rows": 20467, "users": 33 }
+  },
+  "cluster": {
+    "release_label": "emr-7.13.0",
+    "instance_type": "REPLACE_AT_PHASE_4",
+    "core_count": 2,
+    "idle_timeout_seconds": 900
+  }
+}
