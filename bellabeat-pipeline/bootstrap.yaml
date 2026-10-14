@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Bellabeat pipeline bootstrap. One S3 bucket for raw data, processed
+  output, the PySpark script, EMR logs and CloudFormation package
+  artifacts. Kept separate so the bucket outlives pipeline-stack
+  teardowns and Project 4 can COPY from it.
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: bellabeat-pipeline-drew
+
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName:
+        Ref: BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-emr-logs
+            Status: Enabled
+            Prefix: bellabeat-logs/
+            ExpirationInDays: 30
+          - Id: expire-package-artifacts
+            Status: Enabled
+            Prefix: bellabeat-artifacts/
+            ExpirationInDays: 30
+
+Outputs:
+  BucketName:
+    Value:
+      Ref: Bucket
+    Export:
+      Name: bellabeat-bucket

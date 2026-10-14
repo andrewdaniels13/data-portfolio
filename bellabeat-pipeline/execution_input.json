@@ -1,5 +1,5 @@
 {
-  "bucket": "REPLACE_WITH_BUCKET",
+  "bucket": "bellabeat-pipeline-drew",
   "raw_dir": "bellabeat-raw",
   "processed_dir": "bellabeat-processed",
   "scripts_dir": "bellabeat-scripts",
@@ -11,12 +11,18 @@
     "weightLogInfo_merged.csv"
   ],
   "datasets": {
-    "daily": { "rows": 868, "users": 33 },
-    "hourly": { "rows": 20467, "users": 33 }
+    "daily": {
+      "rows": 868,
+      "users": 33
+    },
+    "hourly": {
+      "rows": 20467,
+      "users": 33
+    }
   },
   "cluster": {
     "release_label": "emr-7.13.0",
-    "instance_type": "REPLACE_AT_PHASE_4",
+    "instance_type": "m6g.xlarge",
     "core_count": 2,
     "idle_timeout_seconds": 900
   }

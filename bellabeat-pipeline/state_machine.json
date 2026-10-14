@@ -51,12 +51,16 @@
         "JobFlowRole": "${EmrInstanceProfile}",
         "LogUri.$": "States.Format('s3://{}/{}/', $.bucket, $.logs_dir)",
         "VisibleToAllUsers": true,
-        "Tags": [{ "Key": "project", "Value": "bellabeat-pipeline" }],
+        "Tags": [
+          { "Key": "project", "Value": "bellabeat-pipeline" },
+          { "Key": "for-use-with-amazon-emr-managed-policies", "Value": "true" }
+        ],
         "AutoTerminationPolicy": {
           "IdleTimeout.$": "$.cluster.idle_timeout_seconds"
         },
         "Instances": {
           "KeepJobFlowAliveWhenNoSteps": true,
+          "Ec2SubnetId": "${Ec2SubnetId}",
           "InstanceGroups": [
             {
               "Name": "Primary",
