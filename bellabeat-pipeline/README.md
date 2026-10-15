@@ -1,8 +1,8 @@
 # Bellabeat Pipeline
 
-AWS Step Functions orchestrates a transient Amazon EMR cluster that runs a PySpark job over four Fitbit CSVs and writes two Parquet datasets to S3.
+AWS Step Functions orchestrates a transient Amazon EMR cluster that runs a PySpark job over four Fitbit CSVs and writes two Parquet datasets to S3. Two Lambda functions check the inputs before the cluster starts and check the output before it shuts down.
 
-Post: [Orchestrating a Wellness Data Pipeline with AWS Step Functions and PySpark on EMR](https://medium.com/@andrewndaniels0/orchestrating-a-wellness-data-pipeline-with-aws-step-functions-and-pyspark-on-emr-596a5d91c094) Two Lambda functions check the inputs before the cluster starts and check the output before it shuts down.
+Post: [Orchestrating a Wellness Data Pipeline with AWS Step Functions and PySpark on EMR](https://medium.com/@andrewndaniels0/orchestrating-a-wellness-data-pipeline-with-aws-step-functions-and-pyspark-on-emr-596a5d91c094)
 
 ![Architecture](screenshots/p3_00_architecture.png)
 
