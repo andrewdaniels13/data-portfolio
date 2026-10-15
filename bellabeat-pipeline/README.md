@@ -1,6 +1,8 @@
 # Bellabeat Pipeline
 
-AWS Step Functions orchestrates a transient Amazon EMR cluster that runs a PySpark job over four Fitbit CSVs and writes two Parquet datasets to S3. Two Lambda functions check the inputs before the cluster starts and check the output before it shuts down.
+AWS Step Functions orchestrates a transient Amazon EMR cluster that runs a PySpark job over four Fitbit CSVs and writes two Parquet datasets to S3.
+
+Post: [Orchestrating a Wellness Data Pipeline with AWS Step Functions and PySpark on EMR](https://medium.com/@andrewndaniels0/orchestrating-a-wellness-data-pipeline-with-aws-step-functions-and-pyspark-on-emr-596a5d91c094) Two Lambda functions check the inputs before the cluster starts and check the output before it shuts down.
 
 ![Architecture](screenshots/p3_00_architecture.png)
 
@@ -147,6 +149,8 @@ Delete `bellabeat-pipeline` first. `bellabeat-bootstrap` keeps the bucket on del
 Activity days went from 940 to 868 (72 removed, 7.7%). Hourly rows went from 22,099 to 20,467 (1,632 removed). 24 users logged sleep and 8 logged weight.
 
 ## Cost
+
+run-1 cost **$0.06** in Cost Explorer (October 14, 2026): EC2 $0.050, EMR $0.005, EBS (EC2 - Other) $0.004, public IPv4 $0.002.
 
 What bills during a run: the three EC2 nodes plus the EMR charge (per second, 1-minute minimum), one public IPv4 address per node, and the nodes' EBS volumes. Nothing bills between runs except a few MB of S3 storage. EMR logs and package uploads expire after 30 days.
 
